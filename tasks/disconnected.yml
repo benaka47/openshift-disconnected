@@ -1,0 +1,105 @@
+- name: Copy the file from connected to disconnected using Method Pull if needed
+  synchronize:
+    src: "{{ connected_install_tmp_path }}"
+    dest: "{{ disconnected_install_tmp_path }}"
+    mode: pull
+  when: ( connected_install_tmp_path != disconnected_install_tmp_path )
+
+- name: Ensure Nginx rpm is installed from local files
+  shell: "rpm -ivh nginx-*.rpm"
+  ignore_errors: True
+
+- name: Ensure Nginx config file is in place
+  copy:
+    src: repo.conf
+    dest: /etc/nginx/conf.d/
+
+- name: Ensure Nginx server root directory is configured if needed
+  lineinfile:
+    path: /etc/nginx/nginx.conf
+    regexp: '^\sroot.*;$'
+    line: "\troot\t{{ nginx_root_directory }};"
+  when: (nginx_root_directory is defined)
+
+- name: Ensure Autoindex is ON for Nginx
+  blockinfile:
+    path: /etc/nginx/nginx.conf
+    state: present
+    marker_begin: "## ANSIBLE MANAGED BLOCK ##"
+    marker_end: "## ANSIBLE MANAGED BLOCK END##"
+    insertafter: "http {"
+    block: |2
+      autoindex on;
+  notify:
+    - restart nginx
+    - restart docker
+    - restart docker-registy
+
+- name: Ensure yum repos files are in place
+  blockinfile:
+    create: yes
+    state: present
+    path: /etc/yum.repos.d/localrhel.repo
+    marker_begin: "## ANSIBLE MANAGED BLOCK ##"
+    marker_end: "## ANSIBLE MANAGED BLOCK END##"
+    block: |
+        [rhel-7-server-rpms]
+        name=rhel-7-server-rpms
+        baseurl=http://localhost/repos/rhel-7-server-rpms
+        enabled=1
+        gpgcheck=0
+        [rhel-7-server-extras-rpms]
+        name=rhel-7-server-extras-rpms
+        baseurl=http://localhost/repos/rhel-7-server-extras-rpms
+        enabled=1
+        gpgcheck=0
+        [rhel-7-server-ansible-2.6-rpms]
+        name=rhel-7-server-ansible-2.6-rpms
+        baseurl=http://localhost/repos/rhel-7-server-ansible-2.6-rpms
+        enabled=1
+        gpgcheck=0
+        [rhel-7-server-ose-3.11-rpms]
+        name=rhel-7-server-ose-3.11-rpms
+        baseurl=http://localhost/repos/rhel-7-server-ose-3.11-rpms
+        enabled=1
+        gpgcheck=0
+
+- name: Ensure packages are installed offline
+  yum:
+    name:
+     - "{{ item }}"
+    state: latest
+  loop:
+    "{{ install_packages }}"
+
+- name: Ensure Docker images are loaded from archive
+  docker_image:
+    name: "{{ item }}"
+    tag: "{{ ose_version_tag }}"
+    load_path: "{{ disconnected_install_tmp_path }}/ose3-images.tar"
+  loop: "{{ ose_docker_images }}"
+  ignore_errors: yes
+
+- name: Ensure Docker images are tagged and pushed to local registry
+  docker_image:
+    name: "{{ item }}"
+    repository: '{{ disconnected_registry_endpoint }}/{{ item }}'
+    tag: "{{ ose_version_tag }}"
+    push: yes
+  loop: "{{ ose_docker_images }}"
+  ignore_errors: yes
+
+- name: Push OSE docker images from archive
+  include: push_images.yml archive="ose3-images.tar" image_name="{{ item }}"
+  loop: "{{ ose_docker_images }}"
+
+- name: Push OSE s2i docker images from archive
+  include: push_images.yml archive="s2i-ose3-images.tar" image_name="{{ item }}"
+  loop: "{{ ose_s2i_images }}"
+
+- name: Push OSE docker optional images from archive
+  include: push_images.yml archive="ose3-optional-images.tar" image_name="{{ item }}"
+  loop: "{{ ose_docker_optional_images }}"
+
+- name: Tag ETCD docker image
+  shell: docker tag "{{ public_redhat_registry }}"/"{{ etcd_image }}:{{ etcd_image_version }}" {{ disconnected_registry_endpoint }}/"{{ etcd_image }}":"{{ etcd_image_version }}"

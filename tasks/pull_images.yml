@@ -1,0 +1,26 @@
+- name: Ensure docker images are pulled
+  block:
+    - name: Ensure {{ image_name }} tagged image is pulled
+      docker_image:
+        name: "{{ public_redhat_registry }}/{{ image_name }}:{{ ose_version_tag }}"
+      register: image
+  rescue:
+    - name: Ensure {{ image_name }} latest image is pulled (tagged {{ ose_version_tag }} not found)
+      docker_image:
+        name: "{{ public_redhat_registry }}/{{ image_name }}:latest"
+      register: image
+  always:
+    - name: Build images list with tagged ones
+      set_fact:
+        images_list: '{{ images_list + " " + image.image.RepoTags[0] }}'
+      when: image.image|selectattr("RepoTags", "defined")|list|length >0
+ 
+    - name: Add existing ones to the images list
+      shell: docker image ls "{{ public_redhat_registry }}/{{ image_name }}" --format \{\{.Repository}}:\{\{.Tag\}\}
+      register: docker_image
+      when: image.image|selectattr("RepoTags", "undefined")
+
+    - name: Add untagged ones to the images list
+      set_fact:
+        images_list: '{{ images_list + " " + docker_image.stdout }}'
+      when: image.image|selectattr("RepoTags", "undefined")

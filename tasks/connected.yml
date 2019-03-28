@@ -1,0 +1,80 @@
+- name: Ensure tools and dependencies are installed
+  yum:
+    name:
+     - "{{ item }}"
+    state: latest
+  with_items:
+    "{{ install_packages }}"
+
+- name: Ensure docker-py is install with pip
+  pip:
+    name: docker-py
+
+# WHY??
+- name: Trigger docker restart
+  debug: 
+    msg: ""
+  notify:
+    - restart docker
+    - restart docker-registry
+  changed_when: true
+
+- name: Ensure temporary repository folder exists
+  file:
+   path: "{{ connected_install_tmp_path }}/repos"
+   state: directory
+   mode: 0755
+
+- name: Sync Redhat's OSE repositories
+  shell: reposync --gpgcheck -lm --repoid="{{ item }}" --download_path="{{ connected_install_tmp_path }}/repos"
+  with_items:
+    "{{ ose_repositories }}"
+
+- name: Setup Redhat's OSE repositories
+  shell: createrepo -v "{{ connected_install_tmp_path }}/repos/{{ item }}" -o "{{ connected_install_tmp_path }}/repos/{{ item }}"
+  with_items:
+    "{{ ose_repositories }}"
+
+- name: Log into Redhat registry and force re-authorization
+  docker_login:
+    registry: "{{ public_redhat_registry }}"
+    username: "{{ public_redhat_registry_username }}"
+    password: "{{ public_redhat_registry_password }}"
+    reauthorize: yes
+
+- name: Ensure OSE docker images are pulled
+  include: pull_images.yml image_name="{{ item }}"
+  loop: "{{ ose_docker_images }}"
+
+- name: Ensure ETCD docker images are pulled
+  docker_image:
+    name: "{{ public_redhat_registry }}/{{ etcd_image }}:{{ etcd_image_version }}"
+
+- name: Add ETCD to the images list
+  set_fact:
+     images_list: '{{ images_list + " " + public_redhat_registry + "/" + etcd_image + ":" + etcd_image_version }}'
+
+- name: Create tar archive for OSE docker images
+  shell: docker save -o {{ connected_install_tmp_path }}/ose3-images.tar {{ images_list }}
+
+- name: Reset images list
+  set_fact:
+     images_list: '{{ "" }}'
+
+- name: Ensure o2i docker images are pulled
+  include: pull_images.yml image_name="{{ item }}"
+  loop: "{{ ose_s2i_images }}"
+
+- name: Create tar archive for o2i docker images
+  shell: docker save -o {{ connected_install_tmp_path }}/s2i-ose3-images.tar {{ images_list }}
+
+- name: Reset images list
+  set_fact:
+     images_list: '{{ "" }}'
+
+- name: Ensure optional docker images are pulled
+  include: pull_images.yml image_name="{{ item }}"
+  loop: "{{ ose_docker_optional_images }}"
+
+- name: Create tar archive for optional docker images
+  shell: docker save -o {{ connected_install_tmp_path }}/ose3-optional-images.tar {{ images_list }}

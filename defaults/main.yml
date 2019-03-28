@@ -1,5 +1,6 @@
-
-#list of packages that will be installed
+---
+# defaults file for openshift-disconnected
+# List of packages (tools and dependencies) that will be installed
 install_packages:
   - yum-utils
   - createrepo
@@ -8,31 +9,15 @@ install_packages:
   - docker-distribution
   - git
 
-#local path for downloaded rpms ans docker images, spare at least 140G of space on the machine with internet access
-#Make sure the path exists
+# Local path for downloaded rpms ans docker images, spare at least 140G of space on the machine with internet access
 connected_install_tmp_path: /Data/tmp
 
-#if connected and disconnected machines are the same set 'disconnected_install_tmp_path' to 'connected_install_tmp_path'.
-#Set 'disconnected_install_tmp_path' to a local path on your disconected machine, spare 140G at least, and make sure the path exists before launching the playbook
-disconnected_install_tmp_path: "{{ connected_install_tmp_path }}"
-#disconnected_install_tmp_path: /Data/
-
-disconnected_registry_endpoint: localhost:5000
-
-nginx_root_directory: "{{ disconnected_install_tmp_path }}"
-
-# Specify the generic release of OpenShift to install.
+# Release version of OpenShift to install
 ose_version: 3.11
 
-# Specify an exact container image tag to install or configure.
-#ose_version_tag: latest
-ose_version_tag: v3.11.88
-
-
-#List of needed RHEL repos, make sure your connected machine is attached to the right subscriptions
-#List for OSE 3.11 https://docs.openshift.com/container-platform/3.11/install/disconnected_install.html#disconnected-syncing-repos
-#Update the list according to the target OSE version to be installed
-
+# List of needed RHEL repos, make sure your connected machine is attached to the right subscriptions
+# List for OSE 3.11 https://docs.openshift.com/container-platform/3.11/install/disconnected_install.html#disconnected-syncing-repos
+# Update the list according to the target OSE version to be installed
 ose_repositories:
   - rhel-{{ ansible_distribution_major_version }}-server-rpms
   - rhel-{{ ansible_distribution_major_version }}-server-extras-rpms
@@ -40,11 +25,20 @@ ose_repositories:
   - rhel-{{ ansible_distribution_major_version }}-server-ose-{{ ose_version }}-rpms
   - rhel-{{ ansible_distribution_major_version }}-server-ansible-2.6-rpms
 
+# Red Hat Docker registry configuration
+public_redhat_registry: registry.redhat.io
+public_redhat_registry_username: 'your_rh_account'
+public_redhat_registry_password: 'super_secret_password'
+
+# Init Docker images list 
+images_list: '{{ "" }}'
+
+# Container image tag to install or configure.
+ose_version_tag: v3.11.88
+
 #List of needed RHEL docker images
 #List for OSE 3.11 https://docs.openshift.com/container-platform/3.11/install/disconnected_install.html#disconnected-syncing-images
 #Update the list according to the target OSE version to be installed
-
-
 ose_docker_images:
   - openshift3/apb-base
   - openshift3/apb-tools
@@ -100,6 +94,11 @@ ose_docker_images:
   - openshift3/registry-console
   - openshift3/snapshot-controller
   - openshift3/snapshot-provisioner
+
+# ETCD docker image and version
+# Check compatible version before setting the variable : https://access.redhat.com/articles/2176281
+etcd_image: rhel7/etcd
+etcd_image_version: 3.2.22
 
 ose_s2i_images:
   - jboss-amq-6/amq63-openshift
@@ -160,27 +159,11 @@ ose_docker_optional_images:
   - rhgs3/rhgs-gluster-block-prov-rhel7
   - rhgs3/rhgs-s3-server-rhel7
 
+# If connected and disconnected machines are the same set 'disconnected_install_tmp_path' to 'connected_install_tmp_path'.
+# If not, set 'disconnected_install_tmp_path' to a local path on your disconected machine, spare 140G at least, and make sure the path exists before launching the playbook.
+disconnected_install_tmp_path: "{{ connected_install_tmp_path }}"
+#disconnected_install_tmp_path: /Data/
 
-#Exact version of etcd to be used
-#etcd for OSE 3.11
-#Check compatible version before setting the variable : https://access.redhat.com/articles/2176281
+nginx_root_directory: "{{ disconnected_install_tmp_path }}"
 
-etcd_image: rhel7/etcd
-etcd_image_version: 3.2.22
-#etcd_image_version: latest
-
-
-# SSH user, this user should allow ssh based auth without requiring a
-# password. If using ssh key based auth, then the key should be managed by an
-# ssh agent.
-#ansible_user: root
-
-# If ansible_user is not root, ansible_become must be set to true and the
-#ansible_become:yes
-ansible_sudo_pass:'redhat'
-
-
-#registry.redhat.io configurtaion
-public_redhat_registry: registry.redhat.io
-public_redhat_registry_username: user
-public_redhat_registry_password: redhat
+disconnected_registry_endpoint: localhost:5000
