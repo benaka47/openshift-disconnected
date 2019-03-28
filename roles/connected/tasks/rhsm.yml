@@ -1,0 +1,97 @@
+
+# Install local tools and dependencies
+- name: install a list of packages
+  yum:
+    name:
+     - "{{ item }}"
+    state: latest
+  with_items:
+    "{{ install_packages }}"
+
+# install docker dependencies
+- name: install pip dependency
+  pip:
+    name: docker-py
+
+-  debug: msg="trigger docker restart"
+   notify:
+    - restart docker
+    - restart docker-registry
+   changed_when: true
+
+#Create folder for local rpm repository
+- name: Setup local repo
+  file:
+   path: "{{ connected_install_tmp_path }}/repos"
+   state: directory
+   mode: 0755
+
+#Download OSE redhat rpm repositories content
+- name: Setup local repo
+  shell: reposync --gpgcheck -lm --repoid="{{ item }}" --download_path="{{ connected_install_tmp_path }}/repos"
+  with_items:
+    "{{ ose_repositories }}"
+
+#Configure local rpm repos
+- name: Setup local repo
+  shell: createrepo -v "{{ connected_install_tmp_path }}/repos/{{ item }}" -o "{{ connected_install_tmp_path }}/repos/{{ item }}"
+  with_items:
+    "{{ ose_repositories }}"
+
+#Log into redhat repositories, please use cutomer access account.
+- name: Log into Redhat registry and force re-authorization
+  docker_login:
+    registry: "{{ public_redhat_registry }}"
+    username: "{{ public_redhat_registry_username }}"
+    password: "{{ public_redhat_registry_password }}"
+    reauthorize: yes
+
+#Init images list
+- name: Set facts
+  set_fact:
+     images_list: '{{ "" }}'
+
+#Pull docker images
+- name: pull docker images
+  include: pull_from_public.yml
+  with_items: "{{ ose_docker_images }}"
+
+#Pull docker images
+- name: pull etcd docker image
+  docker_image:
+    name: "{{ public_redhat_registry }}/{{ etcd_image }}:{{ etcd_image_version }}"
+
+#Setting docker images list
+- name: Set facts
+  set_fact:
+     images_list: '{{ images_list + " " + public_redhat_registry + "/" + etcd_image + ":" + etcd_image_version }}'
+
+#Create tar archive for docker images
+- name: Archive images
+  shell: docker save -o {{ connected_install_tmp_path }}/ose3-images.tar {{ images_list }}
+
+#Init images list
+- name: Set facts
+  set_fact:
+     images_list: '{{ "" }}'
+
+- name: pull o2i images
+  include: pull_from_public.yml
+  with_items: "{{ ose_s2i_images }}"
+
+#Create tar archive for docker images
+- name: Archive images
+  shell: docker save -o {{ connected_install_tmp_path }}/s2i-ose3-images.tar {{ images_list }}
+
+#Init images list
+- name: Set facts
+  set_fact:
+     images_list: '{{ "" }}'
+
+- name: pull ose optional images
+  include: pull_from_public.yml
+  with_items: "{{ ose_docker_optional_images }}"
+
+#Create tar archive for docker images
+- name: Archive images
+  shell: docker save -o {{ connected_install_tmp_path }}/ose3-optional-images.tar {{ images_list }}

@@ -1,0 +1,13 @@
+- name: "Check if {{ item }} is installed"
+  command: rpm -q {{ item }}
+  register: result
+  ignore_errors: True
+  failed_when: no
+  changed_when: no
+
+
+- name: "Disable {{ item }} services"
+  service:
+    name: "{{ item }}"
+    enabled: False
+  when: result.stdout.find('is not installed') == -1
