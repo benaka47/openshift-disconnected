@@ -24,10 +24,10 @@ ose_version: 3.11
 # Update the list according to the target OSE version to be installed
 ose_repositories:
   - rhel-{{ ansible_distribution_major_version }}-server-rpms
-#  - rhel-{{ ansible_distribution_major_version }}-server-extras-rpms
-#  - rhel-{{ ansible_distribution_major_version }}-fast-datapath-rpms
-#  - rhel-{{ ansible_distribution_major_version }}-server-ose-{{ ose_version }}-rpms
-#  - rhel-{{ ansible_distribution_major_version }}-server-ansible-2.6-rpms
+  - rhel-{{ ansible_distribution_major_version }}-server-extras-rpms
+  - rhel-{{ ansible_distribution_major_version }}-fast-datapath-rpms
+  - rhel-{{ ansible_distribution_major_version }}-server-ose-{{ ose_version }}-rpms
+  - rhel-{{ ansible_distribution_major_version }}-server-ansible-2.6-rpms
 
 # Red Hat Docker registry configuration
 public_redhat_registry: registry.redhat.io
