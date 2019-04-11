@@ -1,0 +1,21 @@
+---
+# handlers file for openshift-disconnected
+- name: docker_started
+  service: "name=docker state=started"
+  become: yes
+
+- name: docker_stopped
+  service: "name=docker state=stopped"
+  become: yes
+
+- name: restart_nginx
+  service: "name=nginx state=restarted"
+  become: yes
+
+- name: restart_docker
+  service: "name=docker state=restarted"
+  become: yes
+
+- name: restart_docker-registry
+  service: "name=docker-distribution state=restarted"
+  become: yes

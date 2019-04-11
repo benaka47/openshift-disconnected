@@ -1,0 +1,35 @@
+- name: Load docker images from archive
+  docker_image:
+    state: present
+    name: "{{ image_name }}"
+    load_path: "{{ install_tmp_path }}/{{ archive }}"
+
+- name: Push images
+  block:
+    - name: Pull tagged images from local archive
+      docker_image:
+        name: '{{ public_redhat_registry }}/{{ image_name }}:{{ ose_version_tag }}'
+        tag: '{{ disconnected_registry_endpoint }}/{{ image_name }}:{{ ose_version_tag }}'
+        load_path: "{{ install_tmp_path }}/{{ archive }}"
+        state: present
+
+    - name: Pull tagged images from RedHat Docker Registry
+      docker_image:
+        name: '{{ public_redhat_registry }}/{{ item }}:{{ ose_version_tag }}'
+        tag: '{{ disconnected_registry_endpoint }}/{{ item }}:{{ ose_version_tag }}'
+        state: present
+
+    - name: Push images to disconnected docker registry
+      docker_image:
+        name: '{{ disconnected_registry_endpoint }}/{{ image_name }}:{{ ose_version_tag }}'
+        push: yes
+        pull: no
+
+  rescue:
+    - name: Pull latest {{ image_name }} images from ReHat Docker registry because {{ ose_version_tag }} not found
+      docker_image:
+        name: '{{ public_redhat_registry }}/{{ image_name }}'
+        state: present
+
+    - name: Tag {{ image_name }} images with latest because {{ ose_version_tag }} not found
+      shell: docker tag "{{ public_redhat_registry }}"/"{{ image_name }}" "{{ disconnected_registry_endpoint }}"/"{{ image_name }}":latest
