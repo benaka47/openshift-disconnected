@@ -115,10 +115,20 @@ Example Playbook
   ```
 
 You need to use different `inventory` depending on your use case.  
-For example use case #1, you should use this kind of `inventory` if you use your local machine (do not set `[disconnected]`group):
+For example use case #1, you should use this kind of `inventory` :
 ```ini
 [connected]
-localhost ansible_connection=local
+deployer.example.com ansible_connection=local
+
+[disconnected]
+deployer.example.com ansible_connection=local
+
+[all:vars]
+public_redhat_registry= registry.redhat.io
+public_redhat_registry_username= 'redhat.user'
+public_redhat_registry_password= 'redhat.supersecret'
+
+
 ```
 
 For example use case #2, you should use this kind of `inventory` if you use your local machine and another isolated machine:
