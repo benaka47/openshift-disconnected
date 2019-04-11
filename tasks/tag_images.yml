@@ -1,0 +1,34 @@
+- name: Ensure docker images are pulled
+  block:
+    - name: Ensure {{ image_name }} is tagged with {{ ose_version_tag }} tag and pushed to {{ inventory_hostname }}:5000
+      docker_image:
+        name: "{{ image_name }}"
+        repository: '{{ inventory_hostname }}:5000/{{ item }}'
+        tag: "{{ ose_version_tag }}"
+        state: present
+        push: yes
+
+    - name: Add tag v{{ ose_version }} to image
+      docker_image:
+        name: "{{ inventory_hostname }}:5000/{{ item }}:{{ ose_version_tag }}"
+        repository: "{{ inventory_hostname }}:5000/{{ item }}:v{{ ose_version }}"
+        state: present
+        push: yes
+        force: yes
+
+  rescue:
+    - name: Ensure {{ image_name }} is tagged with latest tag and pushed to {{ inventory_hostname }}:5000
+      docker_image:
+        name: "{{ image_name }}:latest"
+        repository: '{{ inventory_hostname }}:5000/{{ item }}:{{ ose_version_tag }}'
+        state: present
+        push: yes
+        force: yes
+
+    - name: Add tag v{{ ose_version }} to image
+      docker_image:
+        name: "{{ inventory_hostname }}:5000/{{ item }}:{{ ose_version_tag }}"
+        repository: "{{ inventory_hostname }}:5000/{{ item }}:v{{ ose_version }}"
+        state: present
+        push: yes
+        force: yes

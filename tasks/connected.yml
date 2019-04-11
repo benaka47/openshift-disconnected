@@ -5,35 +5,29 @@
     state: latest
   with_items:
     "{{ install_packages }}"
+  ignore_errors: True
 
 - name: Ensure docker-py is install with pip
   pip:
     name: docker-py
 
-# WHY??
-- name: Trigger docker restart
-  debug: 
-    msg: ""
-  notify:
-    - restart docker
-    - restart docker-registry
-  changed_when: true
 
 - name: Ensure temporary repository folder exists
   file:
-   path: "{{ connected_install_tmp_path }}/repos"
+   path: "{{ repos_root_directory }}"
    state: directory
    mode: 0755
 
 - name: Sync Redhat's OSE repositories
-  shell: reposync --gpgcheck -lm --repoid="{{ item }}" --download_path="{{ connected_install_tmp_path }}/repos"
+  shell: reposync --gpgcheck -lm --repoid="{{ item }}" --download_path="{{ repos_root_directory }}"
   with_items:
     "{{ ose_repositories }}"
 
 - name: Setup Redhat's OSE repositories
-  shell: createrepo -v "{{ connected_install_tmp_path }}/repos/{{ item }}" -o "{{ connected_install_tmp_path }}/repos/{{ item }}"
+  shell: createrepo -v "{{ repos_root_directory }}/{{ item }}" -o "{{ repos_root_directory }}/{{ item }}"
   with_items:
     "{{ ose_repositories }}"
+
 
 - name: Log into Redhat registry and force re-authorization
   docker_login:
@@ -41,6 +35,49 @@
     username: "{{ public_redhat_registry_username }}"
     password: "{{ public_redhat_registry_password }}"
     reauthorize: yes
+
+- name: Ensure docker root folder exists
+  file:
+   path: "{{ docker_root_directory }}"
+   state: directory
+   mode: 0755
+
+- stat: path=/var/lib/docker
+  register: links
+- debug: msg="link exists, ommit move docker working directory"
+  when: links.stat.islnk is defined and links.stat.islnk
+
+- name: Move docker working directry to install path
+  command: mv /var/lib/docker "{{ docker_root_directory }}"
+  when: not (links.stat.islnk is defined and links.stat.islnk)
+
+- name: Set new docker working directry to install path
+  command: ln -s "{{ docker_root_directory }}" /var/lib/docker
+  when: not (links.stat.islnk is defined and links.stat.islnk)
+
+- name: Start docker
+  service:
+   name: docker
+   state: restarted
+
+
+- stat: path=/var/lib/registry
+  register: links
+- debug: msg="link exists, ommit move docker working directory"
+  when: links.stat.islnk is defined and links.stat.islnk
+
+- name: Move docker working directry to install path
+  command: mv /var/lib/registry "{{ registry_root_directory }}"
+  when: not (links.stat.islnk is defined and links.stat.islnk)
+
+- name: Set new docker working directry to install path
+  command: ln -s "{{ registry_root_directory }}" /var/lib/registry
+  when: not (links.stat.islnk is defined and links.stat.islnk)
+
+- name: Start docker
+  service:
+   name: docker
+   state: restarted
 
 - name: Ensure OSE docker images are pulled
   include: pull_images.yml image_name="{{ item }}"
@@ -56,6 +93,7 @@
 
 - name: Create tar archive for OSE docker images
   shell: docker save -o {{ connected_install_tmp_path }}/ose3-images.tar {{ images_list }}
+  when: inventory_hostname not in groups.disconected
 
 - name: Reset images list
   set_fact:
@@ -67,6 +105,7 @@
 
 - name: Create tar archive for o2i docker images
   shell: docker save -o {{ connected_install_tmp_path }}/s2i-ose3-images.tar {{ images_list }}
+  when: inventory_hostname not in groups.disconected
 
 - name: Reset images list
   set_fact:
@@ -78,3 +117,4 @@
 
 - name: Create tar archive for optional docker images
   shell: docker save -o {{ connected_install_tmp_path }}/ose3-optional-images.tar {{ images_list }}
+  when: inventory_hostname not in groups.disconected

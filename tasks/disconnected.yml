@@ -1,39 +1,41 @@
-- name: Copy the file from connected to disconnected using Method Pull if needed
+
+- name: Copy the file from connected to disconnected using Pull if needed
   synchronize:
     src: "{{ connected_install_tmp_path }}"
-    dest: "{{ disconnected_install_tmp_path }}"
-    mode: pull
-  when: ( connected_install_tmp_path != disconnected_install_tmp_path )
+    dest: "{{ disconnected_install_tmp_path }}/test"
+  delegate_to: "{{ groups['connected'][0] }}"
+  when: copy_method == 'network'
 
 - name: Ensure Nginx rpm is installed from local files
   shell: "rpm -ivh nginx-*.rpm"
   ignore_errors: True
 
-- name: Ensure Nginx config file is in place
-  copy:
-    src: repo.conf
-    dest: /etc/nginx/conf.d/
+- name: Allow nginx to access rpm files, set correct selinux files context
+  sefcontext:
+   target: '{{ nginx_web_root_directory }}(/.*)?'
+   setype: httpd_var_run_t
+   state: present
 
-- name: Ensure Nginx server root directory is configured if needed
-  lineinfile:
-    path: /etc/nginx/nginx.conf
-    regexp: '^\sroot.*;$'
-    line: "\troot\t{{ nginx_root_directory }};"
-  when: (nginx_root_directory is defined)
+- name: restore selinux context on "{{ nginx_web_root_directory }}"
+  shell: restorecon -R "{{ nginx_web_root_directory }}"
 
-- name: Ensure Autoindex is ON for Nginx
-  blockinfile:
-    path: /etc/nginx/nginx.conf
-    state: present
-    marker_begin: "## ANSIBLE MANAGED BLOCK ##"
-    marker_end: "## ANSIBLE MANAGED BLOCK END##"
-    insertafter: "http {"
-    block: |2
-      autoindex on;
-  notify:
-    - restart nginx
-    - restart docker
-    - restart docker-registy
+- name: set correct owner on "{{ nginx_web_root_directory }}"
+  file:
+   path: "{{ nginx_web_root_directory }}"
+   owner: nginx
+   group: nginx
+   recurse: yes
+
+- name: Ensure Nginx server root is configured
+  template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
+
+- name: restart nginx
+  service:
+   name: nginx
+   state: restarted
+
 
 - name: Ensure yum repos files are in place
   blockinfile:
@@ -72,34 +74,150 @@
   loop:
     "{{ install_packages }}"
 
-- name: Ensure Docker images are loaded from archive
-  docker_image:
-    name: "{{ item }}"
-    tag: "{{ ose_version_tag }}"
-    load_path: "{{ disconnected_install_tmp_path }}/ose3-images.tar"
-  loop: "{{ ose_docker_images }}"
-  ignore_errors: yes
 
-- name: Ensure Docker images are tagged and pushed to local registry
-  docker_image:
-    name: "{{ item }}"
-    repository: '{{ disconnected_registry_endpoint }}/{{ item }}'
-    tag: "{{ ose_version_tag }}"
-    push: yes
-  loop: "{{ ose_docker_images }}"
-  ignore_errors: yes
+- name: stop docker
+  service:
+   name: docker
+   state: stopped
+
+- name: stop docker-distribution
+  service:
+   name: docker-distribution
+   state: stopped
+
+- stat: path=/var/lib/docker
+  register: links
+- debug: msg="link exists, ommit move docker working directory"
+  when: links.stat.islnk is defined and links.stat.islnk
+
+- name: Move docker working directry
+  command: mv -f /var/lib/docker "{{ docker_root_directory }}"
+  when: not (links.stat.islnk is defined and links.stat.islnk)
+
+- name: Set new docker working directry
+  command: ln -s "{{ docker_root_directory }}" /var/lib/docker
+  when: not (links.stat.islnk is defined and links.stat.islnk)
+
+- name: Set Correct selinux context on "{{ docker_root_directory }}"
+  sefcontext:
+   target: '{{ docker_root_directory }}(/.*)?'
+   setype: unlabeled_t
+   state: present
+
+- name: restore selinux context on "{{ docker_root_directory }}"
+  shell: restorecon -R "{{ docker_root_directory }}"
+
+- name: Set Correct selinux context on "{{ docker_root_directory }}/docker"
+  sefcontext:
+   target: '{{ docker_root_directory }}/docker(/.*)?'
+   setype: container_var_lib_t
+   state: present
+
+- name: restore selinux context on "{{ docker_root_directory }}/docker"
+  shell: restorecon -R "{{ docker_root_directory }}/docker"
+
+
+- name: Set Correct selinux context on "{{ docker_root_directory }}/docker/overlay2"
+  sefcontext:
+   target: '{{ docker_root_directory }}/docker/overlay2(/.*)?'
+   setype: container_share_t
+   state: present
+
+- name: restore selinux context on "{{ docker_root_directory }}/docker/overlay2"
+  shell: restorecon -R "{{ docker_root_directory }}/docker/overlay2"
+
+
+- stat: path=/var/lib/registry
+  register: links
+- debug: msg="link exists, ommit move docker working directory"
+  when: links.stat.islnk is defined and links.stat.islnk
+
+- name: Move docker registry directry
+  command: mv -f /var/lib/registry "{{ registry_root_directory }}"
+  when: not (links.stat.islnk is defined and links.stat.islnk)
+
+- name: Set new docker registry directry
+  command: ln -s "{{ registry_root_directory }}" /var/lib/registry
+  when: not (links.stat.islnk is defined and links.stat.islnk)
+
+- name: Start docker
+  service:
+   name: docker
+   state: restarted
+
+- name: restart docker
+  service:
+   name: docker-distribution
+   state: restarted
 
 - name: Push OSE docker images from archive
   include: push_images.yml archive="ose3-images.tar" image_name="{{ item }}"
   loop: "{{ ose_docker_images }}"
+  when: inventory_hostname not in groups.connected
 
 - name: Push OSE s2i docker images from archive
   include: push_images.yml archive="s2i-ose3-images.tar" image_name="{{ item }}"
   loop: "{{ ose_s2i_images }}"
+  when: inventory_hostname not in groups.connected
 
 - name: Push OSE docker optional images from archive
   include: push_images.yml archive="ose3-optional-images.tar" image_name="{{ item }}"
   loop: "{{ ose_docker_optional_images }}"
+  when: inventory_hostname not in groups.connected
 
-- name: Tag ETCD docker image
-  shell: docker tag "{{ public_redhat_registry }}"/"{{ etcd_image }}:{{ etcd_image_version }}" {{ disconnected_registry_endpoint }}/"{{ etcd_image }}":"{{ etcd_image_version }}"
+- name: Ensure registry cert folder exists
+  file:
+   path: "{{ ssl_cert_root_directory }}"
+   state: directory
+   mode: 0755
+
+- name: Generate a Self Signed OpenSSL certificate
+  shell: openssl req -new -x509 -sha256 -newkey rsa:2048 -nodes -keyout "{{ ssl_cert_root_directory }}"/registry.key -days 365 -out "{{ ssl_cert_root_directory }}"/registry.crt -subj "/C=FR/ST=PARIS/L=Earth/O=RedHat/OU=IT/CN=www.redhat.com/emailAddress=kbenali@redhat.com"
+
+- name: Set Correct selinux context on "{{ registry_root_directory }}"
+  sefcontext:
+   target: '{{ registry_root_directory }}(/.*)?'
+   setype: container_file_t
+   state: present
+
+- name: restore selinux context on "{{ registry_root_directory }}"
+  shell: restorecon -R "{{ registry_root_directory }}"
+
+- name: Set Correct selinux context on "{{ ssl_cert_root_directory }}"
+  sefcontext:
+   target: '{{ ssl_cert_root_directory }}(/.*)?'
+   setype: container_file_t
+   state: present
+
+- name: restore selinux context on "{{ ssl_cert_root_directory }}"
+  shell: restorecon -R "{{ ssl_cert_root_directory }}"
+
+- name: create docker registry container
+  docker_container:
+   restart: yes
+   state: started
+   restart_policy: always
+   name: registry
+   image: registry:2
+   recreate: yes
+   ports:
+    - "443:443"
+   volumes:
+    - "{{ registry_root_directory }}:/var/lib/registry"
+    - "{{ ssl_cert_root_directory }}:/certs"
+   env:
+    REGISTRY_HTTP_ADDR=0.0.0.0:443
+    REGISTRY_HTTP_TLS_CERTIFICATE=/certs/registry.crt
+    REGISTRY_HTTP_TLS_KEY=/certs/registry.key
+
+- name: Tag images and push to local repository
+  include: tag_images.yml image_name="{{ item }}"
+  loop: "{{ ose_docker_images }}"
+
+- name: Tag images and push to local repository
+  include: tag_images.yml image_name="{{ item }}"
+  loop: "{{ ose_s2i_images }}"
+
+- name: Tag images and push to local repository
+  include: tag_images.yml image_name="{{ item }}"
+  loop: "{{ ose_docker_optional_images }}"

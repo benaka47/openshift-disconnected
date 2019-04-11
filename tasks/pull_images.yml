@@ -14,7 +14,7 @@
       set_fact:
         images_list: '{{ images_list + " " + image.image.RepoTags[0] }}'
       when: image.image|selectattr("RepoTags", "defined")|list|length >0
- 
+
     - name: Add existing ones to the images list
       shell: docker image ls "{{ public_redhat_registry }}/{{ image_name }}" --format \{\{.Repository}}:\{\{.Tag\}\}
       register: docker_image
