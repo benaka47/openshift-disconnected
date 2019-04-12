@@ -1,5 +1,6 @@
 - name: Enable EPEL repos
   shell: yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+  ignore_errors: True
   
 - name: Ensure tools and dependencies are installed
   yum:
@@ -30,6 +31,10 @@
   with_items:
     "{{ ose_repositories }}"
 
+- name: Start docker
+  service:
+   name: docker
+   state: restarted
 
 - name: Log into Redhat registry and force re-authorization
   docker_login:
@@ -43,6 +48,11 @@
    path: "{{ docker_root_directory }}"
    state: directory
    mode: 0755
+
+- name: Stop docker
+  service:
+   name: docker
+   state: stopped
 
 - stat: path=/var/lib/docker
   register: links
