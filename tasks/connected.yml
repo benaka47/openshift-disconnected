@@ -7,9 +7,9 @@
     "{{ install_packages }}"
   ignore_errors: True
 
-- name: Ensure docker-py is install with pip
-  pip:
-    name: docker-py
+#- name: Ensure docker-py is install with pip
+#  pip:
+#    name: docker-py
 
 
 - name: Ensure temporary repository folder exists
