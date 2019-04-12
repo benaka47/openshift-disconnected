@@ -6,7 +6,7 @@
 install_packages:
   - yum-utils
   - createrepo
-  - python27-python-pip
+  - python-pip
   - docker
   - docker-distribution
   - git
