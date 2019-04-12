@@ -1,5 +1,5 @@
 - name: Enable EPEL repos
-  shell: yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+  shell: yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
   
 - name: Ensure tools and dependencies are installed
   yum:
