@@ -1,7 +1,7 @@
 ---
 # tasks file for openshift-disconnected
-#- name: Include task for connected host
-#  include: connected.yml
+- name: Include task for connected host
+  include: connected.yml
 #  when: inventory_hostname in groups['connected']
 
 - name: Include task for disconnected host
