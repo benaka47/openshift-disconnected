@@ -80,8 +80,8 @@ Role Variables
 
 Variables defined in `default/main.yml`
 
-|Key|Description|Default|
-|---|-----------|-------|
+|Key|Description               |Default|
+|---|--------------------------|-------|
 |install_packages|List of packages (tools and dependencies) that will be installed| `["yum-utils","createrepo","python-pip","docker","docker-distribution","git"]`|
 |connected_install_tmp_path|Local path for downloaded rpms ans docker images, spare at least 140G of space on the machine with internet access|`/Data/tmp`|
 |ose_version|Release version of OpenShift to install|`3.11`|
@@ -99,7 +99,7 @@ Variables defined in `default/main.yml`
 |disconnected_install_tmp_path|Please explain that|`{{ connected_install_tmp_path }}`|
 |nginx_root_directory|Please explain that|`{{ disconnected_install_tmp_path }}`|
 |disconnected_registry_endpoint|Please explain that|`localhost:5000`|
-|copy_method|If your disconnected machine is unreachable, and you need to transfert the images manualy, select "manual" so the playbook will generate archive files that you can copy.If you disconnected machine is eachable by the connected one use "network" method to push docker images directly to the local docker registry|network
+|copy_method|If your disconnected machine is unreachable, and you need to transfert the images manualy, select "manual" so the playbook will generate archive files that you can copy. If your disconnected machine is eachable by the connected one use "network" method to push docker images directly to the local docker registry|network
 
 Dependencies
 ------------
