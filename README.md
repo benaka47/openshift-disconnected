@@ -107,7 +107,9 @@ Variables defined in `default/main.yml`
 TO DO
 ------------
 Docker service start/stop handlers
+
 Images archive and manual copy use case tasks
+
 Nginx missing rpm dependencies
 
 
