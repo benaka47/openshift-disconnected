@@ -104,6 +104,13 @@ Variables defined in `default/main.yml`
 |ssl_cert_root_directory|Directory where self signed certificates will be created and mounted into the regitry container|`{{ disconnected_install_tmp_path }}/certs`|
 |copy_method|If your disconnected machine is unreachable, and you need to transfert the images manualy, select "manual" so the playbook will generate archive files that you can copy. If your disconnected machine is eachable by the connected one use "network" method to push docker images directly to the local docker registry|network
 
+TO DO
+------------
+Docker service start/stop handlers
+Images archive and manual copy use case tasks
+Nginx missing rpm dependencies
+
+
 Dependencies
 ------------
 
