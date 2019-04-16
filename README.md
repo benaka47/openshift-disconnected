@@ -98,7 +98,7 @@ Variables defined in `default/main.yml`
 |ose_docker_optional_images|Optional docker images|`["openshift3/metrics-cassandra","openshift3/metrics-hawkular-metrics","openshift3/metrics-hawkular-openshift-agent","openshift3/metrics-heapster","openshift3/metrics-schema-installer","openshift3/oauth-proxy","openshift3/ose-logging-curator5","openshift3/ose-logging-elasticsearch5","openshift3/ose-logging-eventrouter","openshift3/ose-logging-fluentd","openshift3/ose-logging-kibana5","openshift3/prometheus","openshift3/prometheus-alert-buffer","openshift3/prometheus-alertmanager","openshift3/prometheus-node-exporter","cloudforms46/cfme-openshift-postgresql","cloudforms46/cfme-openshift-memcached","cloudforms46/cfme-openshift-app-ui","cloudforms46/cfme-openshift-app","cloudforms46/cfme-openshift-embedded-ansible","cloudforms46/cfme-openshift-httpd","cloudforms46/cfme-httpd-configmap-generator","rhgs3/rhgs-server-rhel7","rhgs3/rhgs-volmanager-rhel7","rhgs3/rhgs-gluster-block-prov-rhel7","rhgs3/rhgs-s3-server-rhel7"]`|
 |disconnected_install_tmp_path|Please explain that|`{{ connected_install_tmp_path }}`|
 |nginx_root_directory|Please explain that|`{{ disconnected_install_tmp_path }}`|
-|disconnected_registry_endpoint|Please explain that|`localhost:5000`|
+|disconnected_registry_endpoint|Please explain that|`localhost:5000`|copy_method|If your disconnected machine is unreachable, and you need to transfert the images manualy, select "manual" so the playbook will generate archive files that you can copy.If you disconnected machine is eachable by the connected one use "network" method to push docker images directly to the local docker registry|network
 
 Dependencies
 ------------
